@@ -1,5 +1,6 @@
 package com.example.hemanttiwari.googlesignin;
 
+import android.app.ProgressDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
@@ -20,6 +21,9 @@ import com.google.android.gms.auth.api.signin.GoogleSignInResult;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.SignInButton;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.OptionalPendingResult;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
 
 
 public class MainActivity extends AppCompatActivity  implements
@@ -31,6 +35,10 @@ public class MainActivity extends AppCompatActivity  implements
     SignInButton mSignInButton;
     public static final String TAG = "Hemant_"+ MainActivity.class.getName();
     TextView mSignInText;
+    private ProgressDialog mProgressDialog;
+
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,6 +56,8 @@ public class MainActivity extends AppCompatActivity  implements
             }
         });
 
+        fab.setVisibility(View.GONE);
+
 
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestEmail()
@@ -59,7 +69,7 @@ public class MainActivity extends AppCompatActivity  implements
                 .addApi(Auth.GOOGLE_SIGN_IN_API, gso)
                 .build();
         mSignInButton = (SignInButton) findViewById(R.id.sign_in_button);
-        mSignInButton.setSize(SignInButton.SIZE_STANDARD);
+        mSignInButton.setSize(SignInButton.SIZE_WIDE);
         mSignInButton.setScopes(gso.getScopeArray());
 
         mSignInText = (TextView) findViewById(R.id.SignInText);
@@ -73,9 +83,9 @@ public class MainActivity extends AppCompatActivity  implements
         switch (v.getId()) {
             case R.id.sign_in_button:
                 signIn();
-                mSignInText.setText("Signing In");
+                mSignInText.setText("");
                 mSignInButton.setEnabled(false);
-
+                showProgressDialog("Signing In ...");
                 break;
 
         }
@@ -91,6 +101,8 @@ public class MainActivity extends AppCompatActivity  implements
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
+        hideProgressDialog();
+
         // Result returned from launching the Intent from GoogleSignInApi.getSignInIntent(...);
         if (requestCode == RC_SIGN_IN) {
             GoogleSignInResult result = Auth.GoogleSignInApi.getSignInResultFromIntent(data);
@@ -105,11 +117,11 @@ public class MainActivity extends AppCompatActivity  implements
         if (result.isSuccess()) {
             // Signed in successfully, show authenticated UI.
             GoogleSignInAccount acct = result.getSignInAccount();
-            Toast.makeText(this, "SignInSuccess", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "SignIn Success", Toast.LENGTH_LONG).show();
             updateUI(true);
         } else {
             // Signed out, show unauthenticated UI.
-            Toast.makeText(this, "SignInFailed", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "SignIn has Failed", Toast.LENGTH_LONG).show();
             updateUI(false);
         }
     }
@@ -118,12 +130,16 @@ public class MainActivity extends AppCompatActivity  implements
     {
         if (false == result)
         {
-            mSignInText.setText("Your Last Sign In was not successful, Please try again");
+            mSignInText.setText("You are Not SignedIn");
+            mSignInButton.setVisibility(View.VISIBLE);
             mSignInButton.setEnabled(true);
         }
-        else
-        {
+        else {
             mSignInText.setText("You are SignedIn, Welcome");
+            mSignInButton.setVisibility(View.GONE);
+            mSignInButton.setEnabled(false);
+            Intent startIntent = new Intent(this, AvailableMediaActivity.class);
+            startActivity(startIntent);
 
         }
 
@@ -152,10 +168,83 @@ public class MainActivity extends AppCompatActivity  implements
         int id = item.getItemId();
 
         //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
+        if (id == R.id.action_sout) {
+
+            signOut();
+            return true;
+        }
+        else if (id == R.id.action_profile) {
+
+            showProfile();
             return true;
         }
 
         return super.onOptionsItemSelected(item);
     }
+
+
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        OptionalPendingResult<GoogleSignInResult> opr = Auth.GoogleSignInApi.silentSignIn(mGoogleApiClient);
+        if (opr.isDone()) {
+            // If the user's cached credentials are valid, the OptionalPendingResult will be "done"
+            // and the GoogleSignInResult will be available instantly.
+            Log.d(TAG, "Got cached sign-in");
+            GoogleSignInResult result = opr.get();
+            handleSignInResult(result);
+        } else {
+            // If the user has not previously signed in on this device or the sign-in has expired,
+            // this asynchronous branch will attempt to sign in the user silently.  Cross-device
+            // single sign-on will occur in this branch.
+            showProgressDialog("Signing In ...");
+            opr.setResultCallback(new ResultCallback<GoogleSignInResult>() {
+                @Override
+                public void onResult(GoogleSignInResult googleSignInResult) {
+                    hideProgressDialog();
+                    handleSignInResult(googleSignInResult);
+                }
+            });
+        }
+    }
+
+
+
+    private void showProgressDialog(String msgText) {
+        if (mProgressDialog == null) {
+            mProgressDialog = new ProgressDialog(this);
+            mProgressDialog.setMessage(msgText);
+            mProgressDialog.setIndeterminate(true);
+        }
+
+        mProgressDialog.show();
+    }
+
+    private void hideProgressDialog() {
+        if (mProgressDialog != null && mProgressDialog.isShowing()) {
+            mProgressDialog.hide();
+        }
+    }
+
+
+
+    private void signOut() {
+        showProgressDialog("Signing Out ...");
+        Auth.GoogleSignInApi.signOut(mGoogleApiClient).setResultCallback(
+                new ResultCallback<Status>() {
+                    @Override
+                    public void onResult(Status status) {
+                        hideProgressDialog();
+                        updateUI(false);
+                    }
+                });
+    }
+
+    private void showProfile(){
+
+
+
+    }
+
 }
